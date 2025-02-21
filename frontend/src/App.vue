@@ -12,7 +12,7 @@
         @keydown="handleKeydown"
         :disabled="tematicas.length >= 3"
       />
-      <p v-if="tematicas.length >= 3" class="error"><small>Máximo de 3 temáticas alcanzado.</small></p>
+      <p v-if="tematicas.length >= 3" class="error">Máximo de 3 temáticas alcanzado.</p>
     </div>
 
     <!-- Lista de temáticas agregadas -->
@@ -41,9 +41,6 @@
       <input type="file" @change="handleFileUpload" accept=".csv" />
       <p v-if="fileError" class="error">{{ fileError }}</p>
     </div>
-    <div class="input-group">
-      <small>Si no hay lista, se buscarán automáticamente 10-15 elementos según las temáticas dadas.</small>
-    </div>
 
     <!-- Botón para iniciar el scraping -->
     <button @click="startScraping">Iniciar Scraping</button>
@@ -52,78 +49,6 @@
     <p v-if="statusMessage">{{ statusMessage }}</p>
   </div>
 </template>
-
-<script>
-import { ref } from "vue";
-
-export default {
-  setup() {
-    const inputTematica = ref("");
-    const tematicas = ref([]);
-    const network = ref("");
-    const file = ref(null);
-    const fileError = ref("");
-    const statusMessage = ref("");
-
-    // Manejar entrada de teclado en el campo de temáticas
-    const handleKeydown = (event) => {
-      if (event.key === "," && inputTematica.value.trim() !== "") {
-        event.preventDefault();
-        addTematica();
-      }
-    };
-
-    // Añadir una temática
-    const addTematica = () => {
-      const nuevaTematica = inputTematica.value.replace(",", "").trim();
-      if (nuevaTematica && !tematicas.value.includes(nuevaTematica) && tematicas.value.length < 3) {
-        tematicas.value.push(nuevaTematica);
-      }
-      inputTematica.value = "";
-    };
-
-    // Eliminar una temática
-    const removeTematica = (index) => {
-      tematicas.value.splice(index, 1);
-    };
-
-    // Manejar la carga del archivo CSV
-    const handleFileUpload = (event) => {
-      fileError.value = "";
-      const uploadedFile = event.target.files[0];
-
-      if (uploadedFile) {
-        if (!uploadedFile.name.endsWith(".csv")) {
-          fileError.value = "Por favor, sube un archivo CSV válido.";
-          return;
-        }
-
-        // Guardar el archivo
-        file.value = uploadedFile;
-      }
-    };
-
-    // Enviar datos al backend
-    const startScraping = () => {
-      if (!tematicas.value.length || !network.value) {
-        statusMessage.value = "Por favor, completa todos los campos.";
-        return;
-      }
-
-      console.log("Enviando datos:", {
-        tematicas: tematicas.value,
-        network: network.value,
-        file: file.value ? file.value.name : null,
-      });
-
-      statusMessage.value = "Scraping en proceso...";
-    };
-
-    return { inputTematica, tematicas, handleKeydown, addTematica, removeTematica, network, handleFileUpload, startScraping, fileError, statusMessage };
-  },
-};
-</script>
-
 <style>
 .container {
   max-width: 600px;
@@ -193,3 +118,83 @@ button:hover {
   font-size: 16px;
 }
 </style>
+<script>
+import { ref } from "vue";
+import axios from "axios";
+
+export default {
+  setup() {
+    const inputTematica = ref("");
+    const tematicas = ref([]);
+    const network = ref("");
+    const file = ref(null);
+    const fileError = ref("");
+    const statusMessage = ref("");
+
+    // Manejar entrada de teclado en el campo de temáticas
+    const handleKeydown = (event) => {
+      if (event.key === "," && inputTematica.value.trim() !== "") {
+        event.preventDefault();
+        addTematica();
+      }
+    };
+
+    // Añadir una temática
+    const addTematica = () => {
+      const nuevaTematica = inputTematica.value.replace(",", "").trim();
+      if (nuevaTematica && !tematicas.value.includes(nuevaTematica) && tematicas.value.length < 3) {
+        tematicas.value.push(nuevaTematica);
+      }
+      inputTematica.value = "";
+    };
+
+    // Eliminar una temática
+    const removeTematica = (index) => {
+      tematicas.value.splice(index, 1);
+    };
+
+    // Manejar la carga del archivo CSV
+    const handleFileUpload = (event) => {
+      fileError.value = "";
+      const uploadedFile = event.target.files[0];
+
+      if (uploadedFile) {
+        if (!uploadedFile.name.endsWith(".csv")) {
+          fileError.value = "Por favor, sube un archivo CSV válido.";
+          return;
+        }
+
+        file.value = uploadedFile;
+      }
+    };
+
+    // Enviar datos al backend en FastAPI
+    const startScraping = async () => {
+      if (!tematicas.value.length || !network.value) {
+        statusMessage.value = "Por favor, completa todos los campos.";
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("tematicas", JSON.stringify(tematicas.value));
+      formData.append("network", network.value);
+      if (file.value) formData.append("file", file.value);
+
+      try {
+        const response = await axios.post("http://127.0.0.1:8000/start-scraping/", {
+          tematicas: tematicas.value,
+          network: network.value,
+          file: file.value ? file.value.name : null,
+        });
+
+        statusMessage.value = response.data.message;
+      } catch (error) {
+        console.error("Error en scraping:", error);
+        statusMessage.value = "Error al iniciar el scraping.";
+      }
+    };
+
+    return { inputTematica, tematicas, handleKeydown, addTematica, removeTematica, network, handleFileUpload, startScraping, fileError, statusMessage };
+  },
+};
+</script>

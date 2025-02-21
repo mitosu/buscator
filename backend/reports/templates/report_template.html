@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte de Scraping</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: auto; }
+        h1 { text-align: center; color: #333; }
+        .site { border-bottom: 1px solid #ccc; padding: 10px; }
+        img { max-width: 100%; height: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Reporte de Scraping</h1>
+        {% for item in data %}
+        <div class="site">
+            <h2>{{ item.domain }}</h2>
+            <p><strong>Title:</strong> {{ item.title }}</p>
+            <p><strong>Description:</strong> {{ item.description }}</p>
+            {% if item.screenshot %}
+                <img src="{{ item.screenshot }}" alt="Screenshot">
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</body>
+</html>

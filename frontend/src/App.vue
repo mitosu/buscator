@@ -12,7 +12,7 @@
         @keydown="handleKeydown"
         :disabled="tematicas.length >= 3"
       />
-      <p v-if="tematicas.length >= 3" class="error">Máximo de 3 temáticas alcanzado.</p>
+      <p v-if="tematicas.length >= 3" class="error"><small>Máximo de 3 temáticas alcanzado.</small></p>
     </div>
 
     <!-- Lista de temáticas agregadas -->
@@ -40,6 +40,9 @@
       <label>Cargar lista de dominios (CSV)</label>
       <input type="file" @change="handleFileUpload" accept=".csv" />
       <p v-if="fileError" class="error">{{ fileError }}</p>
+    </div>
+    <div class="input-group">
+      <small>Si no hay lista, se buscarán automáticamente 10-15 elementos según las temáticas dadas.</small>
     </div>
 
     <!-- Botón para iniciar el scraping -->

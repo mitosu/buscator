@@ -4,8 +4,15 @@
 
     <!-- Campo de texto para ingresar temáticas -->
     <div class="input-group">
-      <label>Temáticas (separadas por comas)</label>
-      <input v-model="inputTematica" type="text" placeholder="Ej: Shops, Market" @keydown="handleKeydown" />
+      <label>Temáticas (máximo 3, separadas por comas)</label>
+      <input
+        v-model="inputTematica"
+        type="text"
+        placeholder="Ej: Shops, Market"
+        @keydown="handleKeydown"
+        :disabled="tematicas.length >= 3"
+      />
+      <p v-if="tematicas.length >= 3" class="error">Máximo de 3 temáticas alcanzado.</p>
     </div>
 
     <!-- Lista de temáticas agregadas -->
@@ -66,7 +73,7 @@ export default {
     // Añadir una temática
     const addTematica = () => {
       const nuevaTematica = inputTematica.value.replace(",", "").trim();
-      if (nuevaTematica && !tematicas.value.includes(nuevaTematica)) {
+      if (nuevaTematica && !tematicas.value.includes(nuevaTematica) && tematicas.value.length < 3) {
         tematicas.value.push(nuevaTematica);
       }
       inputTematica.value = "";
@@ -155,7 +162,7 @@ button:hover {
 }
 
 .error {
-  color: red;
+  color: rgb(253, 67, 67);
   font-size: 14px;
 }
 

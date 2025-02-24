@@ -43,14 +43,13 @@
       <p v-if="fileError" class="error">{{ fileError }}</p>
     </div>
 
-    <!-- Botón para iniciar el scraping -->
-    <button @click="startScraping">Iniciar Scraping</button>
+    <!-- Botón para iniciar o reiniciar el scraping -->
+    <button :class="scrapingCompleted ? 'reset-button' : ''" @click="scrapingCompleted ? resetApp() : startScraping()">
+      {{ scrapingCompleted ? 'Nuevo Scraping' : 'Iniciar Scraping' }}
+    </button>
 
     <!-- Mensaje de estado -->
     <p v-if="statusMessage" class="message">{{ statusMessage }}</p>
-    
-    <!-- Botón para reiniciar la aplicación manualmente -->
-    <button v-if="scrapingCompleted" @click="resetApp" class="reset-button">Nuevo Scraping</button>
   </div>
 </template>
 
@@ -95,12 +94,11 @@ button:hover {
 }
 
 .reset-button {
-  margin-top: 15px;
-  background-color: #dc3545;
+  background-color: #28a745 !important;
 }
 
 .reset-button:hover {
-  background-color: #c82333;
+  background-color: #218838 !important;
 }
 
 .error {
@@ -194,7 +192,15 @@ export default {
       }
     };
 
-    return { inputTematica, tematicas, handleKeydown, addTematica, network, fileError, statusMessage, scrapingCompleted, startScraping };
+    const resetApp = () => {
+      tematicas.value = [];
+      network.value = "";
+      file.value = null;
+      statusMessage.value = "";
+      scrapingCompleted.value = false;
+    };
+
+    return { inputTematica, tematicas, handleKeydown, addTematica, network, fileError, statusMessage, scrapingCompleted, startScraping, resetApp };
   },
 };
 </script>

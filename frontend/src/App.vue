@@ -1,7 +1,8 @@
 <template>
   <div class="container">
     <h1>buscaTOR Scraper</h1>
-
+    <ReportDownload v-if="scrapingCompleted" />
+    
     <!-- Campo de texto para ingresar temáticas -->
     <div class="input-group">
       <label>Temáticas (máximo 3, separadas por comas)</label>
@@ -46,9 +47,13 @@
     <button @click="startScraping">Iniciar Scraping</button>
 
     <!-- Mensaje de estado -->
-    <p v-if="statusMessage">{{ statusMessage }}</p>
+    <p v-if="statusMessage" class="message">{{ statusMessage }}</p>
+    
+    <!-- Botón para reiniciar la aplicación manualmente -->
+    <button v-if="scrapingCompleted" @click="resetApp" class="reset-button">Nuevo Scraping</button>
   </div>
 </template>
+
 <style>
 .container {
   max-width: 600px;
@@ -89,6 +94,15 @@ button:hover {
   background-color: #0056b3;
 }
 
+.reset-button {
+  margin-top: 15px;
+  background-color: #dc3545;
+}
+
+.reset-button:hover {
+  background-color: #c82333;
+}
+
 .error {
   color: rgb(253, 67, 67);
   font-size: 14px;
@@ -117,12 +131,24 @@ button:hover {
   font-weight: bold;
   font-size: 16px;
 }
+
+.message {
+  margin-top: 20px;
+  font-weight: bold;
+  color: green;
+}
 </style>
+
 <script>
 import { ref } from "vue";
 import axios from "axios";
+import ReportDownload from "./components/ReportDownload.vue";
 
 export default {
+  components: {
+    ReportDownload
+  },
+  
   setup() {
     const inputTematica = ref("");
     const tematicas = ref([]);
@@ -130,8 +156,8 @@ export default {
     const file = ref(null);
     const fileError = ref("");
     const statusMessage = ref("");
+    const scrapingCompleted = ref(false);
 
-    // Manejar entrada de teclado en el campo de temáticas
     const handleKeydown = (event) => {
       if (event.key === "," && inputTematica.value.trim() !== "") {
         event.preventDefault();
@@ -139,7 +165,6 @@ export default {
       }
     };
 
-    // Añadir una temática
     const addTematica = () => {
       const nuevaTematica = inputTematica.value.replace(",", "").trim();
       if (nuevaTematica && !tematicas.value.includes(nuevaTematica) && tematicas.value.length < 3) {
@@ -148,53 +173,28 @@ export default {
       inputTematica.value = "";
     };
 
-    // Eliminar una temática
-    const removeTematica = (index) => {
-      tematicas.value.splice(index, 1);
-    };
-
-    // Manejar la carga del archivo CSV
-    const handleFileUpload = (event) => {
-      fileError.value = "";
-      const uploadedFile = event.target.files[0];
-
-      if (uploadedFile) {
-        if (!uploadedFile.name.endsWith(".csv")) {
-          fileError.value = "Por favor, sube un archivo CSV válido.";
-          return;
-        }
-
-        file.value = uploadedFile;
-      }
-    };
-
-    // Enviar datos al backend en FastAPI
     const startScraping = async () => {
       if (!tematicas.value.length || !network.value) {
         statusMessage.value = "Por favor, completa todos los campos.";
         return;
       }
-
-      const formData = new FormData();
-      formData.append("tematicas", JSON.stringify(tematicas.value));
-      formData.append("network", network.value);
-      if (file.value) formData.append("file", file.value);
-
       try {
-        const response = await axios.post("http://127.0.0.1:8000/start-scraping/", {
+        statusMessage.value = "Realizando scraping...";
+        scrapingCompleted.value = false;
+
+        await axios.post("http://127.0.0.1:8000/start-scraping/", {
           tematicas: tematicas.value,
-          network: network.value,
-          file: file.value ? file.value.name : null,
+          network: network.value
         });
 
-        statusMessage.value = response.data.message;
-      } catch (error) {
-        console.error("Error en scraping:", error);
+        statusMessage.value = "Scraping finalizado";
+        scrapingCompleted.value = true;
+      } catch {
         statusMessage.value = "Error al iniciar el scraping.";
       }
     };
 
-    return { inputTematica, tematicas, handleKeydown, addTematica, removeTematica, network, handleFileUpload, startScraping, fileError, statusMessage };
+    return { inputTematica, tematicas, handleKeydown, addTematica, network, fileError, statusMessage, scrapingCompleted, startScraping };
   },
 };
 </script>

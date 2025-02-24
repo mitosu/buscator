@@ -7,6 +7,8 @@ from reports.generate_pdf import generate_pdf
 from reports.generate_html import generate_html
 from utils.search_domains import get_surface_domains, get_deepweb_domains
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
 
 app = FastAPI()
 
@@ -19,6 +21,23 @@ app.add_middleware(
 )
 
 app.mount("/screenshots", StaticFiles(directory="screenshots"), name="screenshots")
+
+@app.get("/download-report/")
+def download_report(report_type: str):
+    """
+    Permite descargar el reporte generado en PDF o HTML.
+    Parámetro:
+      - report_type: "pdf" o "html"
+    """
+    report_folder = "reports/generated/"
+    file_name = "scraping_report.pdf" if report_type == "pdf" else "scraping_report.html"
+    file_path = os.path.join(report_folder, file_name)
+
+    if not os.path.exists(file_path):
+        return {"error": "El reporte solicitado no existe"}
+
+    return FileResponse(file_path, filename=file_name, media_type="application/octet-stream")
+
 @app.post("/start-scraping/")
 async def start_scraping(data: dict):
     """

@@ -1,46 +1,44 @@
-from reportlab.lib.pagesizes import letter
-from reportlab.pdfgen import canvas
 import os
+from fpdf import FPDF
+
+class PDF(FPDF):
+    def header(self):
+        self.set_font("Arial", "B", 16)
+        self.cell(200, 10, "Reporte de Scraping", ln=True, align="C")
+        self.ln(10)  # Espaciado después del título
+
+    def chapter_title(self, title):
+        self.set_font("Arial", "B", 12)
+        self.cell(0, 10, title, ln=True)
+        self.ln(5)
+
+    def chapter_body(self, body):
+        self.set_font("Arial", "", 10)
+        self.multi_cell(0, 8, body)  # multi_cell permite manejar texto largo sin que se salga
+        self.ln()
 
 def generate_pdf(data):
-    """
-    Genera un reporte en PDF con los datos de scraping.
-    """
     output_folder = "reports/generated/"
     os.makedirs(output_folder, exist_ok=True)
 
-    pdf_path = os.path.join(output_folder, "scraping_report.pdf")
-    c = canvas.Canvas(pdf_path, pagesize=letter)
-
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(200, 750, "Reporte de Scraping")
-
-    y = 730  # Posición inicial en la página
+    pdf = PDF()
+    pdf.set_auto_page_break(auto=True, margin=15)  # Evitar que el contenido se salga del folio
+    pdf.add_page()
 
     for item in data:
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(50, y, f"Dominio: {item['domain']}")
-        y -= 20
+        pdf.chapter_title(f"Dominio: {item['domain']}")
+        
+        if item.get("description"):
+            pdf.chapter_body(f"Descripción: {item['description']}")
 
-        c.setFont("Helvetica", 10)
-        c.drawString(50, y, f"Title: {item['title']}")
-        y -= 15
-        c.drawString(50, y, f"Description: {item['description']}")
-        y -= 15
-
-        if "screenshot" in item and item["screenshot"]:
+        if item.get("screenshot"):
             screenshot_path = item["screenshot"]
-            try:
-                c.drawImage(screenshot_path, 50, y - 100, width=200, height=150)
-                y -= 170
-            except Exception as e:
-                print(f"Error al agregar imagen {screenshot_path}: {e}")
+            if os.path.exists(screenshot_path):
+                # Ajustar la imagen para que no sea demasiado grande
+                pdf.image(screenshot_path, x=15, w=180)  
+                pdf.ln(10)  # Espaciado después de la imagen
 
-        y -= 20  # Espaciado entre registros
-
-        if y < 100:  # Si no hay más espacio, agregar una nueva página
-            c.showPage()
-            y = 750
-
-    c.save()
+    pdf_path = os.path.join(output_folder, "scraping_report.pdf")
+    pdf.output(pdf_path)
+    
     return pdf_path

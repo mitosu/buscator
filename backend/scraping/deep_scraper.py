@@ -4,6 +4,7 @@ import re
 from urllib.parse import urlparse, parse_qs
 from PIL import Image, ImageDraw
 from requests.exceptions import RequestException
+from scraping.screenshot import capture_screenshot
 
 # Definir el proxy de Tor
 TOR_PROXY = "socks5h://127.0.0.1:9050"
@@ -33,22 +34,6 @@ def extract_real_url(possible_redirect):
         return real_url if real_url.endswith(".onion") else None
 
     return possible_redirect if possible_redirect.endswith(".onion") else None
-
-def capture_screenshot(url, title, output_folder="screenshots"):
-    """
-    Genera una imagen con el título de la página como vista previa.
-    """
-    os.makedirs(output_folder, exist_ok=True)
-    
-    img = Image.new("RGB", (800, 400), color=(255, 255, 255))
-    draw = ImageDraw.Draw(img)
-    draw.text((50, 150), title, fill=(0, 0, 0))
-    
-    screenshot_filename = url.replace("http://", "").replace("/", "_") + ".png"
-    screenshot_path = os.path.join(output_folder, screenshot_filename)
-    img.save(screenshot_path)
-
-    return screenshot_path
 
 def extract_title_description(html_text):
     """
@@ -101,7 +86,7 @@ def scrape_deep(domains, tematicas):
 
             for tema in tematicas:
                 if tema.lower() in title.lower() or tema.lower() in description.lower():
-                    screenshot_path = capture_screenshot(domain, title)
+                    screenshot_path = capture_screenshot(domain, output_folder="screenshots", is_deepweb=True)
 
                     results.append({
                         "domain": domain,

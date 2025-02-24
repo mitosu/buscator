@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from scraping.surface_scraper import scrape_surface
 from scraping.deep_scraper import scrape_deep
@@ -7,7 +7,7 @@ from reports.generate_pdf import generate_pdf
 from reports.generate_html import generate_html
 from utils.search_domains import get_surface_domains, get_deepweb_domains
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 import os
 
 app = FastAPI()
@@ -23,18 +23,17 @@ app.add_middleware(
 app.mount("/screenshots", StaticFiles(directory="screenshots"), name="screenshots")
 
 @app.get("/download-report/")
-def download_report(report_type: str):
+async def download_report(report_type: str = Query(...)):
     """
-    Permite descargar el reporte generado en PDF o HTML.
-    Parámetro:
-      - report_type: "pdf" o "html"
+    Permite descargar reportes PDF o HTML.
     """
     report_folder = "reports/generated/"
-    file_name = "scraping_report.pdf" if report_type == "pdf" else "scraping_report.html"
+    file_name = f"scraping_report.{report_type}"
     file_path = os.path.join(report_folder, file_name)
 
+    # Verificar si el archivo existe antes de devolverlo
     if not os.path.exists(file_path):
-        return {"error": "El reporte solicitado no existe"}
+        return JSONResponse(content={"error": "El reporte solicitado no existe"}, status_code=404)
 
     return FileResponse(file_path, filename=file_name, media_type="application/octet-stream")
 
@@ -60,6 +59,7 @@ async def start_scraping(data: dict):
         return {"error": "No se encontraron dominios para la búsqueda"}
 
     results = []
+    print(f"Dominios obtenidos: {domains}")
     if network == "surface":
         results = scrape_surface(domains, tematicas)
     elif network == "deep":

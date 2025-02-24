@@ -14,17 +14,22 @@ HEADERS = {
     "Accept-Language": "es-ES,es;q=0.9,en;q=0.8"
 }
 
+# Lista de palabras clave prohibidas en meta keywords
+FORBIDDEN_KEYWORDS = [
+    "porn", "porno", "girls", "boys", "moms", "dads", "daddy", "hardcore", "rape", "brutal", "cp", "teens", "hot", "sex"
+]
+
+# Palabras que contengan "pedo"
+PEDO_PATTERN = re.compile(r".*pedo.*", re.IGNORECASE)
+
 def extract_real_url(possible_redirect):
     """
     Extrae la URL real desde un enlace de redirección.
     """
-    print(f"Procesando URL: {possible_redirect}")  # DEBUG: Ver qué URLs estamos recibiendo
-
     parsed_url = urlparse(possible_redirect)
     
     if "redirect_url" in parse_qs(parsed_url.query):
         real_url = parse_qs(parsed_url.query).get("redirect_url", [""])[0]
-        print(f"URL extraída: {real_url}")  # DEBUG: Ver la URL extraída
         return real_url if real_url.endswith(".onion") else None
 
     return possible_redirect if possible_redirect.endswith(".onion") else None
@@ -47,15 +52,26 @@ def capture_screenshot(url, title, output_folder="screenshots"):
 
 def extract_title_description(html_text):
     """
-    Extrae el título y la descripción del HTML usando expresiones regulares.
+    Extrae el título, la descripción y las meta keywords del HTML usando expresiones regulares.
     """
     title_match = re.search(r"<title>(.*?)</title>", html_text, re.IGNORECASE)
-    meta_match = re.search(r'<meta name="description" content="(.*?)"', html_text, re.IGNORECASE)
+    meta_desc_match = re.search(r'<meta name="description" content="(.*?)"', html_text, re.IGNORECASE)
+    meta_keywords_match = re.search(r'<meta name="keywords" content="(.*?)"', html_text, re.IGNORECASE)
     
     title = title_match.group(1) if title_match else "No title"
-    description = meta_match.group(1) if meta_match else "No description"
+    description = meta_desc_match.group(1) if meta_desc_match else "No description"
+    meta_keywords = meta_keywords_match.group(1) if meta_keywords_match else ""
     
-    return title.strip(), description.strip()
+    return title.strip(), description.strip(), meta_keywords.strip()
+
+def contains_forbidden_keywords(meta_keywords):
+    """
+    Verifica si las meta keywords contienen palabras prohibidas.
+    """
+    keywords_lower = meta_keywords.lower()
+    if any(word in keywords_lower for word in FORBIDDEN_KEYWORDS) or PEDO_PATTERN.search(keywords_lower):
+        return True
+    return False
 
 def scrape_deep(domains, tematicas):
     """
@@ -76,7 +92,12 @@ def scrape_deep(domains, tematicas):
             response = requests.get(domain, proxies=proxies, timeout=15, headers=HEADERS)
             response.raise_for_status()
 
-            title, description = extract_title_description(response.text)
+            title, description, meta_keywords = extract_title_description(response.text)
+
+            # Filtrar dominios que contengan palabras prohibidas en meta keywords
+            if contains_forbidden_keywords(meta_keywords):
+                print(f"Saltando {domain}: Contiene palabras prohibidas en meta keywords")
+                continue
 
             for tema in tematicas:
                 if tema.lower() in title.lower() or tema.lower() in description.lower():

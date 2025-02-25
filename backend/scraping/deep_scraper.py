@@ -1,10 +1,12 @@
 import requests
 import os
 import re
+import asyncio
 from urllib.parse import urlparse, parse_qs
 from PIL import Image, ImageDraw
 from requests.exceptions import RequestException
-from scraping.screenshot import capture_screenshot
+from scraping.screenshot import capture_screenshot, ensure_http
+from urllib.parse import urlparse, parse_qs
 
 # Definir el proxy de Tor
 TOR_PROXY = "socks5h://127.0.0.1:9050"
@@ -25,15 +27,26 @@ PEDO_PATTERN = re.compile(r".*pedo.*", re.IGNORECASE)
 
 def extract_real_url(possible_redirect):
     """
-    Extrae la URL real desde un enlace de redirección.
+    Extrae la URL real desde un enlace de redirección y la limpia para obtener solo el dominio principal .onion.
     """
+    print(f"Procesando URL: {possible_redirect}")  # DEBUG
+
     parsed_url = urlparse(possible_redirect)
     
+    # Verifica si la URL contiene un parámetro "redirect_url="
     if "redirect_url" in parse_qs(parsed_url.query):
         real_url = parse_qs(parsed_url.query).get("redirect_url", [""])[0]
-        return real_url if real_url.endswith(".onion") else None
-
-    return possible_redirect if possible_redirect.endswith(".onion") else None
+    else:
+        real_url = possible_redirect
+    
+    # Extraer solo la parte base del dominio .onion (sin rutas o parámetros)
+    if ".onion" in real_url:
+        onion_index = real_url.find(".onion") + 6  # 6 es la longitud de ".onion"
+        clean_url = real_url[:onion_index]  # Obtener solo hasta ".onion"
+        print(f"URL extraída y limpiada: {clean_url}")  # DEBUG
+        return clean_url
+    
+    return None
 
 def extract_title_description(html_text):
     """
@@ -58,52 +71,51 @@ def contains_forbidden_keywords(meta_keywords):
         return True
     return False
 
-def scrape_deep(domains, tematicas):
+async def scrape_deep(domains, tematicas):
     """
-    Realiza scraping en sitios de la Deep Web.
+    Realiza scraping en sitios de la Deep Web utilizando el proxy Tor y filtra según las temáticas.
     """
     results = []
-    proxies = {"http": TOR_PROXY, "https": TOR_PROXY}
+    proxies = {"http": "socks5h://127.0.0.1:9050"}  # Solo HTTP para la Deep Web
 
     for domain in domains:
-        domain = extract_real_url(domain)  # Extraer URL .onion real
+        domain = extract_real_url(domain)  # Extraer URL real de redirecciones
 
-        # Si no se obtiene una URL .onion válida, saltar
         if not domain:
             print(f"Saltando {domain}: No es un dominio .onion válido")
             continue
 
+        # ✅ Asegurar que la URL tenga "http://"
+        domain = ensure_http(domain, is_deepweb=True)
+
         try:
-            response = requests.get(domain, proxies=proxies, timeout=15, headers=HEADERS)
+            response = requests.get(domain, proxies=proxies, timeout=15)
             response.raise_for_status()
 
             title, description, meta_keywords = extract_title_description(response.text)
 
-            # Filtrar dominios que contengan palabras prohibidas en meta keywords
+            # **Filtrar por palabras prohibidas en meta keywords**
             if contains_forbidden_keywords(meta_keywords):
-                print(f"Saltando {domain}: Contiene palabras prohibidas en meta keywords")
+                print(f"❌ Dominio bloqueado por contenido prohibido: {domain}")
                 continue
 
-            for tema in tematicas:
-                if tema.lower() in title.lower() or tema.lower() in description.lower():
-                    screenshot_path = capture_screenshot(domain, output_folder="screenshots", is_deepweb=True)
+            # ✅ Filtrar solo si el título o la descripción coinciden con las temáticas
+            if any(tema.lower() in title.lower() or tema.lower() in description.lower() for tema in tematicas):
+                try:
+                    screenshot_path = capture_screenshot(domain)
+                except Exception as e:
+                    print(f"⚠️ Error al capturar screenshot de {domain}: {e}")
+                    screenshot_path = None  # Permitir que el proceso continúe
 
-                    results.append({
-                        "domain": domain,
-                        "title": title,
-                        "description": description,
-                        "screenshot": screenshot_path
-                    })
-                    break  # Detener la búsqueda si encontramos una coincidencia
+                results.append({
+                    "domain": domain,
+                    "title": title,
+                    "description": description,
+                    "screenshot": screenshot_path
+                })
 
-        except requests.exceptions.HTTPError as e:
-            print(f"Error HTTP en {domain}: {e}")
-        except requests.exceptions.ConnectionError:
-            print(f"Error de conexión en {domain}: No se pudo conectar.")
-        except requests.exceptions.Timeout:
-            print(f"Timeout en {domain}: La solicitud tomó demasiado tiempo.")
         except Exception as e:
-            print(f"Error general en {domain}: {e}")
+            print(f"❌ Error general en {domain}: {e}")
 
-    print(f"Scraping Deep Web completado: {len(results)} resultados encontrados.")
+    print(f"✅ Scraping Deep Web completado: {len(results)} resultados encontrados.")
     return results

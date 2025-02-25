@@ -63,11 +63,7 @@ async def start_scraping(data: dict):
     if network == "surface":
         results = scrape_surface(domains, tematicas)
     elif network == "deep":
-        results = scrape_deep(domains, tematicas)
-
-    # Capturar capturas de pantalla (sin dependencias del SO)
-    for result in results:
-        result["screenshot"] = capture_screenshot(result["domain"])
+        results = await scrape_deep(domains, tematicas)
 
     print("Capturas de pantalla generadas:")
     for r in results:

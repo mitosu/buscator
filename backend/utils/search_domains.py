@@ -71,8 +71,8 @@ def get_deepweb_domains(tematicas):
                 print(f"Error obteniendo dominios .onion desde {search_engine}: {e}")
                 continue  # Pasar al siguiente buscador si falla
         
-        if len(all_domains) >= 10:
-            break  # Si ya tenemos 10 dominios, no seguimos buscando
+        if len(all_domains) >= 15:
+            break  # Si ya tenemos 15 dominios, no seguimos buscando
 
     print(f"Total de dominios obtenidos: {len(all_domains)}")
-    return random.sample(all_domains, min(len(all_domains), 15))  # Retorna 10-15 dominios
+    return random.sample(all_domains, min(len(all_domains), 25))  # Retorna 15-25 dominios

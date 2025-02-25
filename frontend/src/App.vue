@@ -5,7 +5,8 @@
     
     <!-- Campo de texto para ingresar temáticas -->
     <div class="input-group">
-      <label>Temáticas (máximo 3, separadas por comas)</label>
+      <label>Temáticas (máximo 3, separadas por comas)</label><br/>
+      <small>Info: Escriba una coma "," al final para añadir la temática.</small>
       <input
         v-model="inputTematica"
         type="text"

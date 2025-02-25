@@ -111,6 +111,7 @@ async def scrape_deep(domains, tematicas):
                     "domain": domain,
                     "title": title,
                     "description": description,
+                    "products": meta_keywords,
                     "screenshot": screenshot_path
                 })
 

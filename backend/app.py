@@ -2,7 +2,6 @@ from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from scraping.surface_scraper import scrape_surface
 from scraping.deep_scraper import scrape_deep
-from scraping.screenshot import capture_screenshot
 from reports.generate_pdf import generate_pdf
 from reports.generate_html import generate_html
 from utils.search_domains import get_surface_domains, get_deepweb_domains

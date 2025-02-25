@@ -21,6 +21,9 @@
             <p><strong>Título:</strong> {{ item.title }}</p>
             <p><strong>Descripción (tipo de productos):</strong> {{ item.description }}</p>
             <p>{{ item.products }}</p>
+            {% if item.technologies %}
+                <p><strong>Tecnologías usadas:</strong> {{ ', '.join(item.technologies) }}</p>
+            {% endif %}
             {% if item.screenshot %}
                 <img src="{{ item.screenshot }}" alt="Screenshot">
             {% endif %}

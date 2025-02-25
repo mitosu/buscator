@@ -49,6 +49,9 @@ def generate_pdf(data):
             if os.path.exists(screenshot_path):
                 pdf.image(screenshot_path, x=15, w=180)  
                 pdf.ln(10)  # Espaciado después de la imagen
+        
+        if item.get("technologies"):
+            pdf.chapter_body(f"Tecnologías usadas: {', '.join(item['technologies'])}")
 
     pdf_path = os.path.join(output_folder, "scraping_report.pdf")
     pdf.output(pdf_path)

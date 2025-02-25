@@ -24,33 +24,42 @@ def ensure_http(url, is_deepweb=False):
     
     return url
 
-def extract_image_url(soup):
+def extract_image_urls(soup):
     """
-    Intenta obtener la primera imagen relevante del sitio web.
+    Extrae hasta 3 imágenes relevantes de la página.
     """
-    img_tags = soup.find_all("img")
-    for img in img_tags:
+    img_urls = []
+    for img in soup.find_all("img"):
         img_url = img.get("src")
         if img_url and not img_url.startswith("data:image"):  # Evitar imágenes en base64
-            return img_url
-    return None  # Si no hay imágenes relevantes, devolvemos None
+            img_urls.append(img_url)
+        if len(img_urls) >= 3:  # Limitar a 3 imágenes para evitar sobrecarga
+            break
+    return img_urls
 
-def download_image(img_url):
+def download_images(img_urls):
     """
-    Descarga la imagen desde la URL dada.
+    Descarga y devuelve una lista de imágenes PIL desde URLs.
     """
-    try:
-        response = requests.get(img_url, proxies=TOR_PROXY, timeout=15)
-        response.raise_for_status()
-        return Image.open(BytesIO(response.content))
-    except Exception as e:
-        print(f"⚠️ No se pudo descargar la imagen: {e}")
-        return None
+    images = []
+    for img_url in img_urls:
+        try:
+            response = requests.get(img_url, proxies=TOR_PROXY, timeout=15)
+            response.raise_for_status()
+            img = Image.open(BytesIO(response.content))
+            
+            # Filtrar imágenes muy pequeñas (evitar íconos)
+            if img.width > 100 and img.height > 100:
+                images.append(img)
+        except Exception as e:
+            print(f"⚠️ No se pudo descargar la imagen {img_url}: {e}")
+    
+    return images
 
 def capture_screenshot(url, output_folder="screenshots", max_retries=3):
     """
     Descarga el HTML de una página Onion, extrae su contenido y lo renderiza como imagen.
-    También intenta descargar la primera imagen relevante del sitio web.
+    Agrega múltiples imágenes encontradas en la página.
     """
     os.makedirs(output_folder, exist_ok=True)
     
@@ -70,15 +79,13 @@ def capture_screenshot(url, output_folder="screenshots", max_retries=3):
             paragraphs = [p.text.strip() for p in soup.find_all("p")[:5]]
             text_content = f"{title}\n\n" + "\n".join(paragraphs)
 
-            # Intentar obtener una imagen del sitio
-            img_url = extract_image_url(soup)
-            site_image = None
-            if img_url:
-                site_image = download_image(img_url)
+            # Obtener imágenes de la página
+            img_urls = extract_image_urls(soup)
+            site_images = download_images(img_urls)
 
             # Configurar la imagen principal
             img_width = 900
-            img_height = 600 if site_image is None else 900  # Aumentamos la altura si hay imagen
+            img_height = 600 + (300 * len(site_images))  # Ajustar altura según la cantidad de imágenes
             img = Image.new("RGB", (img_width, img_height), color=(255, 255, 255))
             draw = ImageDraw.Draw(img)
 
@@ -94,15 +101,15 @@ def capture_screenshot(url, output_folder="screenshots", max_retries=3):
                 draw.text((margin, y_offset), line, fill=(0, 0, 0), font=font)
                 y_offset += 25
 
-            # Agregar imagen si se encontró
-            if site_image:
-                print(f"🖼️ Agregando imagen de {img_url} al screenshot...")
-                site_image = site_image.resize((img_width - 40, 300))  # Redimensionar la imagen
+            # Agregar imágenes encontradas
+            for site_image in site_images:
+                site_image = site_image.resize((img_width - 40, 300))  # Redimensionar
                 img.paste(site_image, (20, y_offset))  # Pegar la imagen debajo del texto
+                y_offset += 320  # Espacio entre imágenes
 
             # Guardar la imagen generada
             img.save(screenshot_path)
-            print(f"✅ Imagen generada a partir del HTML: {screenshot_path}")
+            print(f"✅ Imagen generada a partir del HTML con imágenes: {screenshot_path}")
             return screenshot_path
 
         except requests.exceptions.Timeout:

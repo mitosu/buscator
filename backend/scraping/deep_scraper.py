@@ -7,6 +7,8 @@ from PIL import Image, ImageDraw
 from requests.exceptions import RequestException
 from scraping.screenshot import capture_screenshot, ensure_http
 from urllib.parse import urlparse, parse_qs
+from utils.detect_technologies import detect_technologies
+from bs4 import BeautifulSoup
 
 # Definir el proxy de Tor
 TOR_PROXY = "socks5h://127.0.0.1:9050"
@@ -89,10 +91,13 @@ async def scrape_deep(domains, tematicas):
         domain = ensure_http(domain, is_deepweb=True)
 
         try:
-            response = requests.get(domain, proxies=proxies, timeout=15)
+            response = requests.get(domain, proxies=proxies, timeout=20)
             response.raise_for_status()
 
             title, description, meta_keywords = extract_title_description(response.text)
+
+            # Detectar tecnologías en el HTML
+            technologies = detect_technologies(response.text)
 
             # **Filtrar por palabras prohibidas en meta keywords**
             if contains_forbidden_keywords(meta_keywords):
@@ -112,6 +117,7 @@ async def scrape_deep(domains, tematicas):
                     "title": title,
                     "description": description,
                     "products": meta_keywords,
+                    "technologies": technologies,
                     "screenshot": screenshot_path
                 })
 

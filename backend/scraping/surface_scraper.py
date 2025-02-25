@@ -1,5 +1,6 @@
 import requests
 from bs4 import BeautifulSoup
+from utils.detect_technologies import detect_technologies
 
 def ensure_http(url):
     """

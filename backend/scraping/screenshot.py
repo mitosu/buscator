@@ -3,6 +3,7 @@ import requests
 import time
 from PIL import Image, ImageDraw, ImageFont
 from bs4 import BeautifulSoup
+from io import BytesIO
 
 # Definir el proxy de Tor
 TOR_PROXY = {"http": "socks5h://127.0.0.1:9050"}
@@ -23,10 +24,33 @@ def ensure_http(url, is_deepweb=False):
     
     return url
 
+def extract_image_url(soup):
+    """
+    Intenta obtener la primera imagen relevante del sitio web.
+    """
+    img_tags = soup.find_all("img")
+    for img in img_tags:
+        img_url = img.get("src")
+        if img_url and not img_url.startswith("data:image"):  # Evitar imágenes en base64
+            return img_url
+    return None  # Si no hay imágenes relevantes, devolvemos None
+
+def download_image(img_url):
+    """
+    Descarga la imagen desde la URL dada.
+    """
+    try:
+        response = requests.get(img_url, proxies=TOR_PROXY, timeout=15)
+        response.raise_for_status()
+        return Image.open(BytesIO(response.content))
+    except Exception as e:
+        print(f"⚠️ No se pudo descargar la imagen: {e}")
+        return None
+
 def capture_screenshot(url, output_folder="screenshots", max_retries=3):
     """
     Descarga el HTML de una página Onion, extrae su contenido y lo renderiza como imagen.
-    Incluye reintentos en caso de fallo.
+    También intenta descargar la primera imagen relevante del sitio web.
     """
     os.makedirs(output_folder, exist_ok=True)
     
@@ -37,17 +61,24 @@ def capture_screenshot(url, output_folder="screenshots", max_retries=3):
     while attempt <= max_retries:
         try:
             print(f"🔄 Intento {attempt}/{max_retries} para obtener HTML de {url}...")
-            response = requests.get(url, proxies=TOR_PROXY, timeout=60)  # Aumentamos el timeout a 60s
+            response = requests.get(url, proxies=TOR_PROXY, timeout=60)
             response.raise_for_status()
 
             # Extraer contenido relevante
             soup = BeautifulSoup(response.text, "html.parser")
             title = soup.title.string if soup.title else "Sin título"
-            paragraphs = [p.text.strip() for p in soup.find_all("p")[:5]]  # Extraemos los primeros 5 párrafos
+            paragraphs = [p.text.strip() for p in soup.find_all("p")[:5]]
             text_content = f"{title}\n\n" + "\n".join(paragraphs)
 
-            # Configurar imagen
-            img_width, img_height = 800, 600
+            # Intentar obtener una imagen del sitio
+            img_url = extract_image_url(soup)
+            site_image = None
+            if img_url:
+                site_image = download_image(img_url)
+
+            # Configurar la imagen principal
+            img_width = 900
+            img_height = 600 if site_image is None else 900  # Aumentamos la altura si hay imagen
             img = Image.new("RGB", (img_width, img_height), color=(255, 255, 255))
             draw = ImageDraw.Draw(img)
 
@@ -61,9 +92,15 @@ def capture_screenshot(url, output_folder="screenshots", max_retries=3):
             margin, y_offset = 20, 20
             for line in text_content.split("\n"):
                 draw.text((margin, y_offset), line, fill=(0, 0, 0), font=font)
-                y_offset += 25  # Espaciado entre líneas
+                y_offset += 25
 
-            # Guardar imagen generada
+            # Agregar imagen si se encontró
+            if site_image:
+                print(f"🖼️ Agregando imagen de {img_url} al screenshot...")
+                site_image = site_image.resize((img_width - 40, 300))  # Redimensionar la imagen
+                img.paste(site_image, (20, y_offset))  # Pegar la imagen debajo del texto
+
+            # Guardar la imagen generada
             img.save(screenshot_path)
             print(f"✅ Imagen generada a partir del HTML: {screenshot_path}")
             return screenshot_path
@@ -75,7 +112,7 @@ def capture_screenshot(url, output_folder="screenshots", max_retries=3):
             break  # Si es un error crítico, no reintentamos
 
         attempt += 1
-        time.sleep(5)  # Esperamos 5 segundos antes de reintentar
+        time.sleep(5)
 
     print(f"❌ Fallo en la captura de {url} después de {max_retries} intentos.")
     return None  # No bloquea el reporte si falla

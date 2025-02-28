@@ -108,6 +108,8 @@ async def scrape_deep(domains, tematicas):
             if any(tema.lower() in title.lower() or tema.lower() in description.lower() for tema in tematicas):
                 try:
                     screenshot_path = capture_screenshot(domain)
+                    if not screenshot_path:
+                        print(f"⚠️ No se pudo capturar screenshot para {domain}")
                 except Exception as e:
                     print(f"⚠️ Error al capturar screenshot de {domain}: {e}")
                     screenshot_path = None  # Permitir que el proceso continúe

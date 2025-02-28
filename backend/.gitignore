@@ -1,0 +1,19 @@
+# Ignorar caché de Python en todos los directorios
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+
+# Ignorar entornos virtuales
+venv/
+.venv/
+
+# Dependencias de paquetes
+*.egg-info/
+site-packages/
+
+# Archivos de configuración locales y logs
+*.log
+*.sqlite3
+
+# Jupyter Notebooks
+.ipynb_checkpoints/

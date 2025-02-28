@@ -103,6 +103,7 @@ class TorBrowserScreenshotter:
             # Argumentos para Tor Browser
             browser_args = [
                 self.tor_browser_path,
+                "--connect",  # Fuerza la conexión automática a la red Tor
                 "--new-instance",
                 "--wait-for-browser",
                 "-width", "1280",
@@ -114,10 +115,14 @@ class TorBrowserScreenshotter:
             # Si es Linux, verificar si es start-tor-browser o firefox directamente
             if sys.platform.startswith('linux') and self.tor_browser_path.endswith('start-tor-browser'):
                 logger.info(f"Iniciando Tor Browser con script: {self.tor_browser_path}")
-                tor_process = subprocess.Popen(browser_args, 
-                                            stdout=subprocess.PIPE, 
-                                            stderr=subprocess.PIPE,
-                                            env=os.environ.copy())
+                logger.info(f"Iniciando Tor Browser con conexión automática: {' '.join(browser_args)}")
+
+                tor_process = subprocess.Popen(
+                                    browser_args,
+                                    stdout=subprocess.PIPE,
+                                    stderr=subprocess.PIPE,
+                                    env=os.environ.copy()
+                                )
             else:
                 # Para macOS, Windows o si apunta directamente a firefox
                 logger.info(f"Iniciando Tor Browser con ejecutable: {self.tor_browser_path}")

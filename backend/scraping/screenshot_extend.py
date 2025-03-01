@@ -26,9 +26,12 @@ class TorBrowserScreenshotter:
             if sys.platform.startswith('linux'):
                 home = str(Path.home())
                 possible_paths = [
-                    f"{home}/tor-browser/Browser/start-tor-browser",
-                    f"{home}/.local/share/torbrowser/tbb/x86_64/tor-browser_en-US/Browser/start-tor-browser",
-                    "/opt/tor-browser/Browser/start-tor-browser"
+                    "/usr/bin/torbrowser-launcher",  # Ubicación de torbrowser en Kali
+                    "/usr/sbin/tor",                 # Ubicación de tor en Kali
+                    "/usr/bin/tor",                   # Tor en otras distribuciones
+                    "/usr/local/bin/tor",             
+                    "/opt/tor-browser/Browser/start-tor-browser",
+                    "/home/kali/.local/share/torbrowser/tbb/x86_64/tor-browser_en-US/Browser/start-tor-browser"
                 ]
             elif sys.platform.startswith('darwin'):  # macOS
                 possible_paths = [

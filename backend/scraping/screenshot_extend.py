@@ -103,6 +103,30 @@ class TorBrowserScreenshotter:
             logger.info(f"🌍 Iniciando Tor Browser en {display} con: {' '.join(browser_args)}")
             tor_process = subprocess.Popen(browser_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=os.environ.copy())
 
+            # 🔹 Esperar a que el navegador abra
+            logger.info("⌛ Esperando 10 segundos para que Tor Browser se abra...")
+            time.sleep(10)
+
+            # 🔹 Simular entrada del usuario con `pyautogui`
+            try:
+                logger.info("⌨ Simulando entrada de URL en Tor Browser con pyautogui...")
+                os.environ["DISPLAY"] = display  # Asegurar que `pyautogui` usa el DISPLAY correcto
+
+                # Enviar CTRL+L para enfocar la barra de direcciones
+                pyautogui.hotkey("ctrl", "l")
+                time.sleep(2)
+
+                # Escribir la URL del sitio .onion
+                pyautogui.typewrite(onion_url)
+                time.sleep(2)
+
+                # Presionar ENTER para navegar al sitio
+                pyautogui.press("enter")
+                time.sleep(60)  # Esperar 60 segundos para que el sitio cargue
+
+            except Exception as e:
+                logger.error(f"❌ Error en simulación de entrada con pyautogui: {str(e)}")
+
             # 🔹 Esperar a que el sitio cargue
             logger.info(f"⌛ Esperando {wait_time} segundos para que el sitio cargue...")
             time.sleep(wait_time)

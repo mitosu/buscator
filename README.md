@@ -22,7 +22,7 @@ Reportes: Generación en PDF y HTML
 bash
 Copy
 Edit
-git clone https://github.com/tuusuario/buscaTOR.git
+git clone git@github.com:mitosu/buscator.git
 cd buscaTOR
 2️⃣ Configurar el Backend (FastAPI)
 📌 Crear y activar entorno virtual:

@@ -83,8 +83,7 @@ Asegúrate de tener Xvfb corriendo antes de ejecutar la aplicación para captura
 La búsqueda en Deep Web requiere Tor Browser correctamente instalado y ejecutándose en modo automático.
 La aplicación fue desarrollada y probada en Kali Linux y CSI Linux, por lo que puede requerir ajustes en otros sistemas.
 🤝 Créditos y Agradecimientos
-💡 Tutor: Fran Rodríguez
-🎯 Equipo de Desarrollo (Grupo C): Gemma, Eva, Oriol y Miguel Torres
+💡 Tutor: Fran J. Rodríguez Montero
 
 📜 Licencia
 Este proyecto está bajo la licencia MIT. Puedes utilizarlo, modificarlo y distribuirlo libremente, siempre y cuando se reconozca la autoría original.

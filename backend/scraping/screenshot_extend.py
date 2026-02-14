@@ -220,7 +220,7 @@ def capture_screenshot_with_tor_browser(url, output_path=None, max_retries=2):
         if not output_path:
             # Extraer dominio para el nombre del archivo
             domain = url.replace("http://", "").replace("https://", "").split("/")[0]
-            screenshots_dir = os.path.join("static", "screenshots")
+            screenshots_dir = "screenshots"
             os.makedirs(screenshots_dir, exist_ok=True)
             output_path = os.path.join(screenshots_dir, f"{domain}.png")
         

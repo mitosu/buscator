@@ -9,6 +9,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 import os
 
+os.makedirs("screenshots", exist_ok=True)
+os.makedirs("reports/generated", exist_ok=True)
+
 app = FastAPI()
 
 app.add_middleware(

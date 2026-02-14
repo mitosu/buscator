@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+requests
+beautifulsoup4
+Pillow
+fpdf
+jinja2
+PySocks
+lxml

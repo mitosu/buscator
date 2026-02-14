@@ -75,4 +75,4 @@ def get_deepweb_domains(tematicas):
             break  # Si ya tenemos 15 dominios, no seguimos buscando
 
     print(f"Total de dominios obtenidos: {len(all_domains)}")
-    return random.sample(all_domains, min(len(all_domains), 25))  # Retorna 15-25 dominios
+    return random.sample(list(all_domains), min(len(all_domains), 25))  # Retorna 15-25 dominios

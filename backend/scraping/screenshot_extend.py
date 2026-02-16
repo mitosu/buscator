@@ -148,25 +148,42 @@ class TorBrowserScreenshotter:
                     process.kill()
         except Exception as e:
             logger.error(f"Error al terminar proceso: {str(e)}")
-    
+
+    @staticmethod
+    def _kill_residual_tor_processes():
+        """Mata procesos residuales de Tor Browser de ejecuciones anteriores"""
+        try:
+            subprocess.run(
+                ["pkill", "-f", "firefox.real.*-no-remote"],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
+            subprocess.run(
+                ["pkill", "-f", "start-tor-browser"],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            )
+            time.sleep(2)  # Esperar a que los procesos terminen y liberen archivos
+        except Exception as e:
+            logger.warning(f"Error limpiando procesos residuales: {e}")
+
     def capture_onion_site(self, onion_url, output_path, wait_time=45, display_num=99):
         """
         Captura screenshot de un sitio .onion usando Tor Browser
-        
+
         Args:
             onion_url: URL del sitio .onion
             output_path: Ruta donde guardar la captura
             wait_time: Tiempo de espera para carga del sitio (segundos)
             display_num: Número de display para Xvfb
-        
+
         Returns:
             bool: True si la captura fue exitosa, False en caso contrario
         """
         xvfb_process = None
         tor_process = None
-        
+
         try:
-            # Preparar perfil para evitar diálogos de recuperación e idioma
+            # Matar procesos residuales y preparar perfil limpio
+            self._kill_residual_tor_processes()
             self._prepare_profile()
 
             # Crear directorio para la captura si no existe
@@ -175,11 +192,11 @@ class TorBrowserScreenshotter:
             # Iniciar Xvfb (servidor X virtual)
             display = f":{display_num}"
             xvfb_cmd = ["Xvfb", display, "-screen", "0", "1280x1024x24"]
-            logger.info(f"Iniciando Xvfb: {' '.join(xvfb_cmd)}")
+            logger.info(f"Iniciando Xvfb en display {display}")
             xvfb_process = subprocess.Popen(xvfb_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            time.sleep(1)  # Dar tiempo a Xvfb para iniciar
+            time.sleep(1)
 
-            # Configurar variables de entorno
+            # Entorno con display virtual y crash reporter desactivado
             env = os.environ.copy()
             env["DISPLAY"] = display
             env["MOZ_CRASHREPORTER_DISABLE"] = "1"
@@ -188,7 +205,7 @@ class TorBrowserScreenshotter:
             # Argumentos para Tor Browser
             browser_args = [
                 self.tor_browser_path,
-                "--connect",  # Fuerza la conexión automática a la red Tor
+                "--connect",
                 "--new-instance",
                 "--wait-for-browser",
                 "-width", "1280",
@@ -197,9 +214,8 @@ class TorBrowserScreenshotter:
                 "-url", onion_url
             ]
 
-            # Si es Linux, verificar si es start-tor-browser o firefox directamente
             if sys.platform.startswith('linux') and self.tor_browser_path.endswith('start-tor-browser'):
-                logger.info(f"Iniciando Tor Browser con conexión automática: {' '.join(browser_args)}")
+                logger.info(f"Iniciando Tor Browser: {onion_url}")
                 tor_process = subprocess.Popen(
                     browser_args,
                     stdout=subprocess.PIPE,
@@ -207,7 +223,6 @@ class TorBrowserScreenshotter:
                     env=env
                 )
             else:
-                # Para macOS, Windows o si apunta directamente a firefox
                 logger.info(f"Iniciando Tor Browser con ejecutable: {self.tor_browser_path}")
                 env["TOR_SKIP_LAUNCH"] = "1"
                 env["TOR_BROWSER_SKIP_LAUNCH"] = "1"
@@ -217,33 +232,37 @@ class TorBrowserScreenshotter:
                     stderr=subprocess.PIPE,
                     env=env
                 )
-            
-            # Tiempo de espera para que Tor Browser se inicie y cargue el sitio
-            logger.info(f"Esperando {wait_time} segundos para carga del sitio {onion_url}...")
+
+            # Esperar a que Tor Browser cargue el sitio
+            logger.info(f"Esperando {wait_time}s para carga de {onion_url}...")
             time.sleep(wait_time)
-            
-            # Tomar screenshot usando scrot
+
+            # Tomar screenshot en el display virtual (mismo env que Tor Browser)
             screenshot_cmd = ["scrot", "-z", output_path]
-            logger.info(f"Tomando screenshot: {' '.join(screenshot_cmd)}")
-            result = subprocess.run(screenshot_cmd, 
-                                   stdout=subprocess.PIPE, 
-                                   stderr=subprocess.PIPE)
-            
+            logger.info(f"Tomando screenshot en display {display}")
+            result = subprocess.run(
+                screenshot_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=env
+            )
+
             if result.returncode != 0:
                 logger.error(f"Error al capturar screenshot: {result.stderr.decode()}")
                 return False
-            
+
             logger.info(f"Screenshot guardado en: {output_path}")
             return True
-            
+
         except Exception as e:
             logger.error(f"Error durante captura: {str(e)}")
             return False
-            
+
         finally:
             # Limpiar procesos
             self._kill_process(tor_process)
             self._kill_process(xvfb_process)
+            time.sleep(1)  # Esperar a que los archivos de sesión se liberen
 
     def capture_with_retries(self, onion_url, output_path, max_retries=3, 
                             base_wait_time=45, backoff_factor=1.5):

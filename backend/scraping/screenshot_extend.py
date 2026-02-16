@@ -4,6 +4,7 @@ import os
 import signal
 import logging
 import sys
+import glob
 import tempfile
 from pathlib import Path
 
@@ -11,11 +12,28 @@ from pathlib import Path
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# Preferencias para suprimir diálogos en modo automatizado
+_TOR_BROWSER_PREFS = {
+    # Desactivar restauración de sesión tras cierre forzoso
+    "browser.sessionstore.resume_from_crash": "false",
+    "toolkit.startup.max_resumed_crashes": "-1",
+    # Desactivar prompts de idioma/localización
+    "intl.locale.requested": '"en-US"',
+    "privacy.spoof_english": "2",
+    # Desactivar otros diálogos
+    "browser.shell.checkDefaultBrowser": "false",
+    "browser.startup.homepage_override.mstone": '"ignore"',
+    "browser.rights.3.shown": "true",
+    "browser.download.panel.shown": "true",
+    "extensions.torlauncher.prompt_at_startup": "false",
+    "app.update.enabled": "false",
+}
+
 class TorBrowserScreenshotter:
     def __init__(self, tor_browser_path=None):
         """
         Inicializa el capturador de screenshots para Tor Browser
-        
+
         Args:
             tor_browser_path: Ruta al ejecutable de Tor Browser
         """
@@ -62,11 +80,62 @@ class TorBrowserScreenshotter:
                     "No se pudo encontrar Tor Browser automáticamente. "
                     "Configura la variable de entorno TOR_BROWSER_PATH con la ruta al ejecutable."
                 )
-        
+
         logger.info(f"Usando Tor Browser en: {self.tor_browser_path}")
-        
+
+        # Detectar directorio del perfil de Tor Browser
+        self.profile_dir = self._find_profile_dir()
+
         # Directorio para guardar capturas temporales
         self.temp_dir = tempfile.gettempdir()
+
+    def _find_profile_dir(self):
+        """Localiza el directorio del perfil default de Tor Browser"""
+        browser_dir = os.path.dirname(self.tor_browser_path)
+        profile_dir = os.path.join(browser_dir, "TorBrowser", "Data", "Browser", "profile.default")
+        if os.path.isdir(profile_dir):
+            logger.info(f"Perfil de Tor Browser encontrado: {profile_dir}")
+            return profile_dir
+        logger.warning(f"No se encontró el perfil en: {profile_dir}")
+        return None
+
+    def _prepare_profile(self):
+        """
+        Prepara el perfil de Tor Browser para uso automatizado:
+        - Elimina archivos de sesión para evitar el diálogo de recuperación
+        - Escribe preferencias en user.js para suprimir prompts
+        """
+        if not self.profile_dir:
+            return
+
+        # Eliminar archivos de sesión que provocan el diálogo de recuperación
+        session_files = [
+            os.path.join(self.profile_dir, "sessionstore.jsonlz4"),
+            os.path.join(self.profile_dir, "sessionstore.json"),
+            os.path.join(self.profile_dir, ".parentlock"),
+            os.path.join(self.profile_dir, "lock"),
+        ]
+        session_backup_dir = os.path.join(self.profile_dir, "sessionstore-backups")
+
+        for f in session_files:
+            if os.path.exists(f):
+                os.remove(f)
+                logger.info(f"Eliminado archivo de sesión: {f}")
+
+        if os.path.isdir(session_backup_dir):
+            for f in glob.glob(os.path.join(session_backup_dir, "*")):
+                os.remove(f)
+            logger.info("Limpiados backups de sesión")
+
+        # Escribir preferencias en user.js
+        user_js_path = os.path.join(self.profile_dir, "user.js")
+        lines = []
+        for key, value in _TOR_BROWSER_PREFS.items():
+            lines.append(f'user_pref("{key}", {value});')
+
+        with open(user_js_path, "w") as f:
+            f.write("\n".join(lines) + "\n")
+        logger.info("Preferencias escritas en user.js")
     
     def _kill_process(self, process):
         """Mata un proceso y espera a que termine"""
@@ -97,19 +166,25 @@ class TorBrowserScreenshotter:
         tor_process = None
         
         try:
+            # Preparar perfil para evitar diálogos de recuperación e idioma
+            self._prepare_profile()
+
             # Crear directorio para la captura si no existe
             os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
-            
+
             # Iniciar Xvfb (servidor X virtual)
             display = f":{display_num}"
             xvfb_cmd = ["Xvfb", display, "-screen", "0", "1280x1024x24"]
             logger.info(f"Iniciando Xvfb: {' '.join(xvfb_cmd)}")
             xvfb_process = subprocess.Popen(xvfb_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             time.sleep(1)  # Dar tiempo a Xvfb para iniciar
-            
-            # Configurar variable de entorno DISPLAY
-            os.environ["DISPLAY"] = display
-            
+
+            # Configurar variables de entorno
+            env = os.environ.copy()
+            env["DISPLAY"] = display
+            env["MOZ_CRASHREPORTER_DISABLE"] = "1"
+            env["MOZ_CRASHREPORTER_NO_REPORT"] = "1"
+
             # Argumentos para Tor Browser
             browser_args = [
                 self.tor_browser_path,
@@ -121,28 +196,27 @@ class TorBrowserScreenshotter:
                 "-no-remote",
                 "-url", onion_url
             ]
-            
+
             # Si es Linux, verificar si es start-tor-browser o firefox directamente
             if sys.platform.startswith('linux') and self.tor_browser_path.endswith('start-tor-browser'):
-                logger.info(f"Iniciando Tor Browser con script: {self.tor_browser_path}")
                 logger.info(f"Iniciando Tor Browser con conexión automática: {' '.join(browser_args)}")
-
                 tor_process = subprocess.Popen(
-                                    browser_args,
-                                    stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE,
-                                    env=os.environ.copy()
-                                )
+                    browser_args,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    env=env
+                )
             else:
                 # Para macOS, Windows o si apunta directamente a firefox
                 logger.info(f"Iniciando Tor Browser con ejecutable: {self.tor_browser_path}")
-                tor_env = os.environ.copy()
-                tor_env["TOR_SKIP_LAUNCH"] = "1"  # Usar Tor existente si está en ejecución
-                tor_env["TOR_BROWSER_SKIP_LAUNCH"] = "1"
-                tor_process = subprocess.Popen(browser_args, 
-                                            stdout=subprocess.PIPE, 
-                                            stderr=subprocess.PIPE,
-                                            env=tor_env)
+                env["TOR_SKIP_LAUNCH"] = "1"
+                env["TOR_BROWSER_SKIP_LAUNCH"] = "1"
+                tor_process = subprocess.Popen(
+                    browser_args,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    env=env
+                )
             
             # Tiempo de espera para que Tor Browser se inicie y cargue el sitio
             logger.info(f"Esperando {wait_time} segundos para carga del sitio {onion_url}...")

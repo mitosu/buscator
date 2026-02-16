@@ -19,16 +19,23 @@ class TorBrowserScreenshotter:
         Args:
             tor_browser_path: Ruta al ejecutable de Tor Browser
         """
+        # Prioridad: argumento > variable de entorno > detección automática
+        env_path = os.environ.get("TOR_BROWSER_PATH")
         if tor_browser_path:
             self.tor_browser_path = tor_browser_path
+        elif env_path:
+            if not os.path.exists(env_path):
+                raise FileNotFoundError(f"TOR_BROWSER_PATH apunta a una ruta inexistente: {env_path}")
+            self.tor_browser_path = env_path
         else:
             # Rutas predeterminadas comunes de Tor Browser según OS
             if sys.platform.startswith('linux'):
                 home = str(Path.home())
                 possible_paths = [
+                    f"{home}/.local/share/torbrowser/tbb/x86_64/tor-browser/Browser/start-tor-browser",
                     f"{home}/tor-browser/Browser/start-tor-browser",
                     f"{home}/.local/share/torbrowser/tbb/x86_64/tor-browser_en-US/Browser/start-tor-browser",
-                    "/opt/tor-browser/Browser/start-tor-browser"
+                    "/opt/tor-browser/Browser/start-tor-browser",
                 ]
             elif sys.platform.startswith('darwin'):  # macOS
                 possible_paths = [
@@ -42,16 +49,19 @@ class TorBrowserScreenshotter:
                 ]
             else:
                 raise OSError(f"Sistema operativo no soportado: {sys.platform}")
-            
+
             # Buscar el ejecutable en las rutas posibles
             self.tor_browser_path = None
             for path in possible_paths:
                 if os.path.exists(path):
                     self.tor_browser_path = path
                     break
-            
+
             if not self.tor_browser_path:
-                raise FileNotFoundError("No se pudo encontrar la ruta a Tor Browser automáticamente.")
+                raise FileNotFoundError(
+                    "No se pudo encontrar Tor Browser automáticamente. "
+                    "Configura la variable de entorno TOR_BROWSER_PATH con la ruta al ejecutable."
+                )
         
         logger.info(f"Usando Tor Browser en: {self.tor_browser_path}")
         
